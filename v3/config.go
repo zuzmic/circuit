@@ -59,6 +59,8 @@ type FallbackConfig struct {
 	Disabled bool `json:",omitempty"`
 	// MaxConcurrentRequests is https://github.com/Netflix/Hystrix/wiki/Configuration#fallback.isolation.semaphore.maxConcurrentRequests
 	MaxConcurrentRequests int64
+	// BadRequestFunc returns true if the error should not trigger fallback logic
+	BadRequestFunc func(err error) bool
 }
 
 // MetricsCollectors can receive metrics during a circuit.  They should be fast, as they will
@@ -114,6 +116,9 @@ func (c *FallbackConfig) merge(other FallbackConfig) {
 	}
 	if !c.Disabled {
 		c.Disabled = other.Disabled
+	}
+	if c.BadRequestFunc == nil {
+		c.BadRequestFunc = other.BadRequestFunc
 	}
 }
 
@@ -211,6 +216,7 @@ var defaultExecutionConfig = ExecutionConfig{
 
 var defaultFallbackConfig = FallbackConfig{
 	MaxConcurrentRequests: 10,
+	BadRequestFunc:        IsBadRequest,
 }
 
 var defaultGoSpecificConfig = GeneralConfig{

@@ -40,6 +40,9 @@ type Circuit struct {
 	// openToClosed controls when to close an open circuit
 	OpenToClose OpenToClosed
 
+	// badRequestFunc controls if the error should trigger fallback logic
+	badRequestFunc func(err error) bool
+
 	timeNow func() time.Time
 }
 
@@ -52,6 +55,13 @@ func NewCircuitFromConfig(name string, config Config) *Circuit {
 		notThreadSafeConfig: config,
 	}
 	ret.SetConfigNotThreadSafe(config)
+
+	if config.Fallback.BadRequestFunc != nil {
+		ret.badRequestFunc = config.Fallback.BadRequestFunc
+	} else {
+		ret.badRequestFunc = IsBadRequest
+	}
+
 	return ret
 }
 
@@ -233,7 +243,7 @@ func (c *Circuit) Execute(ctx context.Context, runFunc func(context.Context) err
 	// A bad request should not trigger fallback logic.  The user just gave bad input.
 	// The list of conditions that trigger fallbacks is documented at
 	// https://github.com/Netflix/Hystrix/wiki/Metrics-and-Monitoring#command-execution-event-types-comnetflixhystrixhystrixeventtype
-	if IsBadRequest(err) {
+	if c.badRequestFunc(err) {
 		return err
 	}
 	return c.fallback(ctx, err, fallbackFunc)
@@ -243,7 +253,7 @@ func (c *Circuit) Execute(ctx context.Context, runFunc func(context.Context) err
 
 func (c *Circuit) throttleConcurrentCommands(currentCommandCount int64) error {
 	if c.threadSafeConfig.Execution.MaxConcurrentRequests.Get() >= 0 && currentCommandCount > c.threadSafeConfig.Execution.MaxConcurrentRequests.Get() {
-		return errThrottledConcucrrentCommands
+		return errThrottledConcurrentCommands
 	}
 	return nil
 }
@@ -343,7 +353,7 @@ func (c *Circuit) checkErrInterrupt(originalContext context.Context, ret error, 
 }
 
 func (c *Circuit) checkErrBadRequest(ret error, runFuncDoneTime time.Time, totalCmdTime time.Duration) bool {
-	if IsBadRequest(ret) {
+	if ret != nil && c.badRequestFunc(ret) {
 		c.CmdMetricCollector.ErrBadRequest(runFuncDoneTime, totalCmdTime)
 		return true
 	}

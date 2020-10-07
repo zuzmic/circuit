@@ -2,7 +2,7 @@ package circuit
 
 import "fmt"
 
-var errThrottledConcucrrentCommands = &circuitError{concurrencyLimitReached: true, msg: "throttling connections to command"}
+var errThrottledConcurrentCommands = &circuitError{concurrencyLimitReached: true, msg: "throttling connections to command"}
 var errCircuitOpen = &circuitError{circuitOpen: true, msg: "circuit is open"}
 
 // circuitError is used for internally generated errors
@@ -11,6 +11,7 @@ type circuitError struct {
 	circuitOpen             bool
 	msg                     string
 }
+
 var _ Error = &circuitError{}
 
 // Error is the type of error returned by internal errors using the circuit library.
