@@ -33,6 +33,9 @@ type GeneralConfig struct {
 	// OpenToClosedFactory creates logic that determines if the circuit should go from Open to Closed state.
 	// By default, it never closes
 	OpenToClosedFactory func() OpenToClosed `json:"-"`
+	// BadRequestFunc returns true if the error should not open circle and should not trigger fallback logic
+	// By default equals to IsBadRequest
+	BadRequestFunc func(err error) bool
 	// CustomConfig is anything you want.
 	CustomConfig map[interface{}]interface{} `json:"-"`
 	// TimeKeeper returns the current way to keep time.  You only want to modify this for testing.
@@ -59,8 +62,6 @@ type FallbackConfig struct {
 	Disabled bool `json:",omitempty"`
 	// MaxConcurrentRequests is https://github.com/Netflix/Hystrix/wiki/Configuration#fallback.isolation.semaphore.maxConcurrentRequests
 	MaxConcurrentRequests int64
-	// BadRequestFunc returns true if the error should not trigger fallback logic
-	BadRequestFunc func(err error) bool
 }
 
 // MetricsCollectors can receive metrics during a circuit.  They should be fast, as they will
@@ -117,9 +118,6 @@ func (c *FallbackConfig) merge(other FallbackConfig) {
 	if !c.Disabled {
 		c.Disabled = other.Disabled
 	}
-	if c.BadRequestFunc == nil {
-		c.BadRequestFunc = other.BadRequestFunc
-	}
 }
 
 func (g *GeneralConfig) mergeCustomConfig(other GeneralConfig) {
@@ -155,6 +153,11 @@ func (g *GeneralConfig) merge(other GeneralConfig) {
 	if g.GoLostErrors == nil {
 		g.GoLostErrors = other.GoLostErrors
 	}
+
+	if g.BadRequestFunc == nil {
+		g.BadRequestFunc = other.BadRequestFunc
+	}
+
 	g.TimeKeeper.merge(other.TimeKeeper)
 }
 
@@ -216,12 +219,12 @@ var defaultExecutionConfig = ExecutionConfig{
 
 var defaultFallbackConfig = FallbackConfig{
 	MaxConcurrentRequests: 10,
-	BadRequestFunc:        IsBadRequest,
 }
 
 var defaultGoSpecificConfig = GeneralConfig{
 	ClosedToOpenFactory: neverOpensFactory,
 	OpenToClosedFactory: neverClosesFactory,
+	BadRequestFunc:      IsBadRequest,
 	TimeKeeper: TimeKeeper{
 		Now:       time.Now,
 		AfterFunc: time.AfterFunc,

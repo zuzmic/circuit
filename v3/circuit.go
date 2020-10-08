@@ -53,14 +53,9 @@ func NewCircuitFromConfig(name string, config Config) *Circuit {
 	ret := &Circuit{
 		name:                name,
 		notThreadSafeConfig: config,
+		badRequestFunc:      config.General.BadRequestFunc, // never equals to nil
 	}
 	ret.SetConfigNotThreadSafe(config)
-
-	if config.Fallback.BadRequestFunc != nil {
-		ret.badRequestFunc = config.Fallback.BadRequestFunc
-	} else {
-		ret.badRequestFunc = IsBadRequest
-	}
 
 	return ret
 }

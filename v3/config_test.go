@@ -40,4 +40,11 @@ func TestGeneralConfig_Merge(t *testing.T) {
 		assert.True(t, cfg.ForcedClosed, "expect to be true")
 	})
 
+	t.Run("badRequestFunc not empty after merge with default config", func(t *testing.T) {
+		cfg := GeneralConfig{BadRequestFunc: nil}
+
+		cfg.merge(defaultGoSpecificConfig)
+
+		assert.NotNil(t, cfg.BadRequestFunc, "should not be nil")
+	})
 }
